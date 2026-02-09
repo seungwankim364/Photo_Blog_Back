@@ -4,7 +4,6 @@ import path from "path";
 import { getDb } from "../db.js";
 import { ObjectId } from "mongodb";
 
-
 const router = express.Router();
 
 /* multer 설정 */
@@ -30,7 +29,7 @@ const upload = multer({
   },
 });
 
-/* POST /upload */
+/* POST /upload - 사진 업로드 */
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     const db = await getDb();
@@ -48,11 +47,11 @@ router.post("/", upload.single("image"), async (req, res) => {
       createdAt: new Date(),
     };
 
-    await db.collection("photos").insertOne(photo);
+    const result = await db.collection("photos").insertOne(photo);
 
     res.status(200).json({
       message: "업로드 성공",
-      photo,
+      photo: { ...photo, _id: result.insertedId },
     });
   } catch (err) {
     console.error(err);
@@ -60,6 +59,7 @@ router.post("/", upload.single("image"), async (req, res) => {
   }
 });
 
+/* GET /upload - 전체 사진 조회 */
 router.get("/", async (req, res) => {
   try {
     const db = await getDb();
@@ -77,6 +77,33 @@ router.get("/", async (req, res) => {
   }
 });
 
+/* GET /upload/:id - 단건 조회 */
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid id" });
+    }
+
+    const db = await getDb();
+
+    const photo = await db
+      .collection("photos")
+      .findOne({ _id: new ObjectId(id) });
+
+    if (!photo) {
+      return res.status(404).json({ error: "사진 없음" });
+    }
+
+    res.status(200).json(photo);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* PATCH /upload/:id - 수정 */
 router.patch("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -117,40 +144,26 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-router.patch("/:id", async (req, res) => {
+/* DELETE /upload/:id - 삭제 */
+router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description } = req.body;
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid id" });
     }
 
-    const updateFields = {};
-    if (title !== undefined) updateFields.title = title;
-    if (description !== undefined) updateFields.description = description;
-
-    if (Object.keys(updateFields).length === 0) {
-      return res.status(400).json({ error: "업데이트할 필드 없음" });
-    }
-
-    updateFields.updatedAt = new Date();
-
     const db = await getDb();
 
-    const result = await db.collection("photos").updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateFields }
-    );
+    const result = await db
+      .collection("photos")
+      .deleteOne({ _id: new ObjectId(id) });
 
-    if (result.matchedCount === 0) {
+    if (result.deletedCount === 0) {
       return res.status(404).json({ error: "사진 없음" });
     }
 
-    res.status(200).json({
-      message: "업데이트 성공",
-      updated: updateFields,
-    });
+    res.status(200).json({ message: "삭제 성공" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
