@@ -1,15 +1,14 @@
-import express from "express";
-import multer from "multer";
-import path from "path";
-import { getDb } from "../db.js";
-import { ObjectId } from "mongodb";
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import { getDb } from '../db.js';
+import { ObjectId } from 'mongodb';
 
 const router = express.Router();
 
-/* multer 설정 */
 const storage = multer.diskStorage({
   destination(req, file, cb) {
-    cb(null, "uploads/");
+    cb(null, 'uploads/');
   },
   filename(req, file, cb) {
     const ext = path.extname(file.originalname);
@@ -20,22 +19,23 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter(req, file, cb) {
-    if (!file.mimetype.startsWith("image/")) {
-      cb(new Error("이미지 파일만 업로드 가능"));
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('Only image files are allowed.'));
+      return;
     }
     cb(null, true);
   },
 });
 
-/* POST /upload - 사진 업로드 */
-router.post("/", upload.single("image"), async (req, res) => {
+router.post('/', upload.single('image'), async (req, res) => {
   try {
     const db = await getDb();
+    const { title = '', description = '', date = '' } = req.body;
 
     if (!req.file) {
-      return res.status(400).json({ error: "파일 없음" });
+      return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const photo = {
@@ -44,13 +44,16 @@ router.post("/", upload.single("image"), async (req, res) => {
       path: req.file.path,
       size: req.file.size,
       mimetype: req.file.mimetype,
+      title,
+      description,
+      date,
       createdAt: new Date(),
     };
 
-    const result = await db.collection("photos").insertOne(photo);
+    const result = await db.collection('photos').insertOne(photo);
 
     res.status(200).json({
-      message: "업로드 성공",
+      message: 'Upload success',
       photo: { ...photo, _id: result.insertedId },
     });
   } catch (err) {
@@ -59,16 +62,11 @@ router.post("/", upload.single("image"), async (req, res) => {
   }
 });
 
-/* GET /upload - 전체 사진 조회 */
-router.get("/", async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const db = await getDb();
 
-    const photos = await db
-      .collection("photos")
-      .find({})
-      .sort({ createdAt: -1 })
-      .toArray();
+    const photos = await db.collection('photos').find({}).sort({ createdAt: -1 }).toArray();
 
     res.status(200).json(photos);
   } catch (err) {
@@ -77,23 +75,19 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* GET /upload/:id - 단건 조회 */
-router.get("/:id", async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid id" });
+      return res.status(400).json({ error: 'Invalid id' });
     }
 
     const db = await getDb();
-
-    const photo = await db
-      .collection("photos")
-      .findOne({ _id: new ObjectId(id) });
+    const photo = await db.collection('photos').findOne({ _id: new ObjectId(id) });
 
     if (!photo) {
-      return res.status(404).json({ error: "사진 없음" });
+      return res.status(404).json({ error: 'Photo not found' });
     }
 
     res.status(200).json(photo);
@@ -103,14 +97,13 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-/* PATCH /upload/:id - 수정 */
-router.patch("/:id", async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description } = req.body;
 
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid id" });
+      return res.status(400).json({ error: 'Invalid id' });
     }
 
     const updateFields = {};
@@ -118,24 +111,23 @@ router.patch("/:id", async (req, res) => {
     if (description !== undefined) updateFields.description = description;
 
     if (Object.keys(updateFields).length === 0) {
-      return res.status(400).json({ error: "업데이트할 필드 없음" });
+      return res.status(400).json({ error: 'No fields to update' });
     }
 
     updateFields.updatedAt = new Date();
 
     const db = await getDb();
-
-    const result = await db.collection("photos").updateOne(
+    const result = await db.collection('photos').updateOne(
       { _id: new ObjectId(id) },
       { $set: updateFields }
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({ error: "사진 없음" });
+      return res.status(404).json({ error: 'Photo not found' });
     }
 
     res.status(200).json({
-      message: "업데이트 성공",
+      message: 'Update success',
       updated: updateFields,
     });
   } catch (err) {
@@ -144,26 +136,22 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-/* DELETE /upload/:id - 삭제 */
-router.delete("/:id", async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid id" });
+      return res.status(400).json({ error: 'Invalid id' });
     }
 
     const db = await getDb();
-
-    const result = await db
-      .collection("photos")
-      .deleteOne({ _id: new ObjectId(id) });
+    const result = await db.collection('photos').deleteOne({ _id: new ObjectId(id) });
 
     if (result.deletedCount === 0) {
-      return res.status(404).json({ error: "사진 없음" });
+      return res.status(404).json({ error: 'Photo not found' });
     }
 
-    res.status(200).json({ message: "삭제 성공" });
+    res.status(200).json({ message: 'Delete success' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -171,4 +159,3 @@ router.delete("/:id", async (req, res) => {
 });
 
 export default router;
-
