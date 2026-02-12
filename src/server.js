@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import uploadRouter from "./routes/upload.js";
-
+import authRouter from "./routes/auth.js";
 
 const app = express();
 
@@ -14,6 +14,7 @@ app.use(cors({
 
 app.use("/uploads", express.static(path.resolve("uploads")));
 app.use("/upload", uploadRouter);
+app.use("/auth", authRouter);
 app.use("/uploads", express.static("uploads"));
 
 app.get("/health", (_, res) => {
@@ -21,5 +22,5 @@ app.get("/health", (_, res) => {
 });
 
 app.listen(3000, () => {
-  console.log("🚀 Server running on port 3000");
+  console.log("Server running on port 3000");
 });

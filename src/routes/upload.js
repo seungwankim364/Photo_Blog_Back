@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { getDb } from '../db.js';
 import { ObjectId } from 'mongodb';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ const upload = multer({
   },
 });
 
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const db = await getDb();
     const { title = '', description = '', date = '' } = req.body;
@@ -48,6 +49,7 @@ router.post('/', upload.single('image'), async (req, res) => {
       description,
       date,
       createdAt: new Date(),
+      ownerId: req.user._id,
     };
 
     const result = await db.collection('photos').insertOne(photo);
@@ -97,7 +99,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description } = req.body;
@@ -136,7 +138,7 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
