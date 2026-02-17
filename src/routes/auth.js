@@ -1,15 +1,13 @@
+import 'dotenv/config';
 import express from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { getDb } from '../db.js';
 
 const router = express.Router();
 
 function makePasswordHash(password, salt) {
   return crypto.createHash('sha256').update(`${salt}:${password}`).digest('hex');
-}
-
-function makeToken() {
-  return crypto.randomBytes(32).toString('hex');
 }
 
 router.post('/signup', async (req, res) => {
@@ -36,19 +34,23 @@ router.post('/signup', async (req, res) => {
 
     const salt = crypto.randomBytes(16).toString('hex');
     const passwordHash = makePasswordHash(String(password), salt);
-    const token = makeToken();
 
     const user = {
       name: trimmedName,
       email: trimmedEmail,
       salt,
       passwordHash,
-      token,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     const result = await db.collection('users').insertOne(user);
+
+    const token = jwt.sign(
+      { userId: result.insertedId.toString(), email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
     return res.status(201).json({
       message: 'Signup success',
@@ -86,10 +88,15 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const token = makeToken();
+    const token = jwt.sign(
+      { userId: user._id.toString(), email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
     await db.collection('users').updateOne(
       { _id: user._id },
-      { $set: { token, updatedAt: new Date() } }
+      { $set: { updatedAt: new Date() } }
     );
 
     return res.status(200).json({
