@@ -64,11 +64,15 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
   }
 });
 
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const db = await getDb();
 
-    const photos = await db.collection('photos').find({}).sort({ createdAt: -1 }).toArray();
+    const photos = await db
+      .collection('photos')
+      .find({ ownerId: req.user._id })
+      .sort({ createdAt: -1 })
+      .toArray();
 
     res.status(200).json(photos);
   } catch (err) {
@@ -77,7 +81,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -86,7 +90,9 @@ router.get('/:id', async (req, res) => {
     }
 
     const db = await getDb();
-    const photo = await db.collection('photos').findOne({ _id: new ObjectId(id) });
+    const photo = await db
+      .collection('photos')
+      .findOne({ _id: new ObjectId(id), ownerId: req.user._id });
 
     if (!photo) {
       return res.status(404).json({ error: 'Photo not found' });
@@ -120,7 +126,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
 
     const db = await getDb();
     const result = await db.collection('photos').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), ownerId: req.user._id },
       { $set: updateFields }
     );
 
@@ -147,7 +153,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
     }
 
     const db = await getDb();
-    const result = await db.collection('photos').deleteOne({ _id: new ObjectId(id) });
+    const result = await db
+      .collection('photos')
+      .deleteOne({ _id: new ObjectId(id), ownerId: req.user._id });
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Photo not found' });
