@@ -1,0 +1,70 @@
+name: Deploy Backend to Lambda and API Gateway
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install production dependencies
+        run: npm ci --omit=dev
+
+      - name: Delete previous bundle
+        run: rm -f lambda-bundle.zip
+
+      - name: Create Lambda bundle
+        run: zip -r lambda-bundle.zip src node_modules package.json package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Upload bundle to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ secrets.LAMBDA_FUNCTION_NAME }}" \
+            --zip-file fileb://lambda-bundle.zip
+
+      - name: Wait for Lambda update
+        run: |
+          aws lambda wait function-updated \
+            --function-name "${{ secrets.LAMBDA_FUNCTION_NAME }}"
+
+      - name: Smoke test Lambda
+        run: |
+          aws lambda invoke \
+            --function-name "${{ secrets.LAMBDA_FUNCTION_NAME }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"httpMethod":"GET","path":"/health","headers":{},"body":null,"isBase64Encoded":false}' \
+            response.json
+          cat response.json
+          if ! grep -q '"statusCode":200' response.json; then
+            echo "Lambda smoke test failed"
+            exit 1
+          fi
+
+      - name: Deploy API Gateway stage
+        run: |
+          aws apigateway create-deployment \
+            --rest-api-id "${{ secrets.API_GATEWAY_REST_API_ID }}" \
+            --stage-name "${{ secrets.API_GATEWAY_STAGE_NAME }}"
+
+      - name: Smoke test API Gateway
+        run: |
+          curl -f "${{ secrets.API_BASE_URL }}/health"

@@ -23,9 +23,13 @@ const upload = multer({
     acl: 'public-read',
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key(req, file, cb) {
-      const fileName = `${Date.now()}-${file.originalname}`;
-      cb(null, `uploads/${fileName}`);
-    },
+  const decoded = Buffer.from(file.originalname, 'latin1').toString('utf8');
+  const ext = path.extname(decoded).toLowerCase();
+  const safeBase = path.basename(decoded, ext).replace(/[^\w.-]/g, '_');
+  const key = `uploads/${Date.now()}-${safeBase}${ext}`;
+  cb(null, key);
+}
+,
   }),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter(req, file, cb) {
