@@ -6,6 +6,7 @@ import multer from 'multer';
 import { getDb } from '../db.js';
 import { ObjectId } from 'mongodb';
 import { requireAuth } from '../middleware/auth.js';
+import path from 'path';
 
 const router = express.Router();
 const S3_BUCKET = process.env.S3_UPLOAD_BUCKET || 'photo-blog-s3-uploads-651914029420';
@@ -20,7 +21,6 @@ const upload = multer({
   storage: multerS3({
     s3,
     bucket: S3_BUCKET,
-    acl: 'public-read',
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key(req, file, cb) {
   const decoded = Buffer.from(file.originalname, 'latin1').toString('utf8');
