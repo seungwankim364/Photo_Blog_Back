@@ -23,12 +23,12 @@ const upload = multer({
     bucket: S3_BUCKET,
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key(req, file, cb) {
-  const decoded = Buffer.from(file.originalname, 'latin1').toString('utf8');
-  const ext = path.extname(decoded).toLowerCase();
-  const safeBase = path.basename(decoded, ext).replace(/[^\w.-]/g, '_');
-  const key = `uploads/${Date.now()}-${safeBase}${ext}`;
-  cb(null, key);
+      const ext = path.extname(file.originalname).toLowerCase();
+      const randomStr = Math.random().toString(36).substring(2, 6);
+      const key = `uploads/${Date.now()}-${randomStr}${ext}`;
+      cb(null, key);
 }
+
 ,
   }),
   limits: { fileSize: 5 * 1024 * 1024 },
