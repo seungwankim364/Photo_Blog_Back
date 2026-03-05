@@ -21,6 +21,7 @@ const upload = multer({
   storage: multerS3({
     s3,
     bucket: S3_BUCKET,
+    acl: 'public-read',
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key(req, file, cb) {
       const ext = path.extname(file.originalname).toLowerCase();
