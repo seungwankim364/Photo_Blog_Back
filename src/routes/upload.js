@@ -12,6 +12,7 @@ const router = express.Router();
 const S3_BUCKET = process.env.S3_UPLOAD_BUCKET || 'photo-blog-s3-uploads-651914029420';
 const SIGNED_URL_TTL_SECONDS = Number(process.env.S3_SIGNED_URL_TTL_SECONDS || 3600);
 const USE_SIGNED_URLS = (process.env.S3_USE_SIGNED_URLS || 'true').toLowerCase() !== 'false';
+const CLOUDFRONT_URL = (process.env.CLOUDFRONT_URL || '').trim().replace(/\/+$/, '');
 
 const s3 = new S3Client({
   region: 'ap-northeast-2',
@@ -52,7 +53,21 @@ function normalizeUrls(value) {
   return [];
 }
 
+function buildCloudFrontUrl(s3Key) {
+  if (!CLOUDFRONT_URL || typeof s3Key !== 'string' || !s3Key.trim()) {
+    return '';
+  }
+
+  const normalizedKey = s3Key.startsWith('/') ? s3Key.slice(1) : s3Key;
+  return `${CLOUDFRONT_URL}/${normalizedKey}`;
+}
+
 async function buildPhotoResponse(photo) {
+  const cloudFrontUrl = buildCloudFrontUrl(photo.s3Key);
+  if (cloudFrontUrl) {
+    return { ...photo, urls: [cloudFrontUrl] };
+  }
+
   const urls = normalizeUrls(photo.urls ?? photo.url ?? photo.path);
 
   if (USE_SIGNED_URLS && photo.s3Key) {
@@ -81,7 +96,7 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
     }
 
     const photo = {
-      urls: [req.file.location],
+      urls: [buildCloudFrontUrl(req.file.key) || req.file.location],
       s3Key: req.file.key,
       originalName: req.file.originalname,
       size: req.file.size,
