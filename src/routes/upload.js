@@ -12,7 +12,18 @@ const router = express.Router();
 const S3_BUCKET = process.env.S3_UPLOAD_BUCKET || 'photo-blog-s3-uploads-651914029420';
 const SIGNED_URL_TTL_SECONDS = Number(process.env.S3_SIGNED_URL_TTL_SECONDS || 3600);
 const USE_SIGNED_URLS = (process.env.S3_USE_SIGNED_URLS || 'true').toLowerCase() !== 'false';
-const CLOUDFRONT_URL = (process.env.CLOUDFRONT_URL || '').trim().replace(/\/+$/, '');
+
+function normalizeCloudFrontUrl(value) {
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return withProtocol.replace(/\/+$/, '');
+}
+
+const CLOUDFRONT_URL = normalizeCloudFrontUrl(process.env.CLOUDFRONT_URL);
 
 const s3 = new S3Client({
   region: 'ap-northeast-2',
