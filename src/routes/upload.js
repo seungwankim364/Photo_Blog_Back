@@ -33,7 +33,9 @@ const upload = multer({
   storage: multerS3({
     s3,
     bucket: S3_BUCKET,
-    contentType: multerS3.AUTO_CONTENT_TYPE,
+    contentType(req, file, cb) {
+      cb(null, file.mimetype || 'application/octet-stream');
+    },
     key(req, file, cb) {
       const ext = path.extname(file.originalname).toLowerCase();
       const randomStr = Math.random().toString(36).substring(2, 6);
